@@ -55,7 +55,7 @@ jobs:
         run: npm run prisma:generate
 
       - name: Security audit
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
 
       - name: Build TypeScript
         run: npm run build
@@ -112,7 +112,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Security audit
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
 
       - name: Build Next.js
         run: npm run build

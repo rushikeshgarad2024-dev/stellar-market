@@ -676,9 +676,10 @@ router.get(
     res.json({
       ...freelancer,
       reputation: reputation ? {
-        totalScore: reputation.score.toString(),
-        totalWeight: reputation.endorsementWeight.toString(),
-        reviewCount: 0,
+totalScore: reputation.score.toString(),
+totalWeight: reputation.endorsementWeight.toString(),
+reviewCount: 0,
+tier: reputation.tier,
       } : null
     });
   }),
