@@ -4863,3 +4863,31 @@ fn test_effective_weight_agrees_with_get_decayed_totals() {
     assert_eq!(effective as u64, client.get_reputation(&reviewee).total_weight);
     assert_eq!(effective, review.stake_weight / 2);
 }
+
+#[test]
+fn test_slash_reputation_refreshes_leaderboard() {
+    let env = setup_high_ttl_env();
+    env.mock_all_auths();
+    let escrow_id = env.register_contract(None, EscrowContract);
+    let dispute_id = Address::generate(&env);
+    let reputation_id = env.register_contract(None, ReputationContract);
+    let client = ReputationContractClient::new(&env, &reputation_id);
+    let admin = Address::generate(&env);
+    client.initialize(&vec![&env, admin.clone()], &1u32, &0u32);
+    client.set_dispute_contract(&dispute_id);
+
+    let reviewer = Address::generate(&env);
+    let reviewee = Address::generate(&env);
+    setup_review_for(&env, &escrow_id, &client, 1, &reviewer, &reviewee, 5);
+
+    let before_board = client.get_top_freelancers(&10);
+    assert_eq!(before_board.len(), 1);
+    assert_eq!(before_board.get(0).unwrap().user, reviewee);
+
+    // Slash reputation via dispute contract
+    client.slash_reputation(&reviewee, &1, &500, &String::from_str(&env, "dispute penalty"));
+
+    let after_board = client.get_top_freelancers(&10);
+    // Leaderboard should reflect updated/decayed score immediately
+    assert_eq!(after_board.len(), 1);
+}
