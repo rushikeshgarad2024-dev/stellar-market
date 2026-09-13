@@ -4397,3 +4397,144 @@ fn test_dispute_storage_survives_long_idle_period_to_resolution() {
     let result = client.resolve_dispute(&dispute_id);
     assert_eq!(result, DisputeStatus::ResolvedForFreelancer);
 }
+
+
+#[contract]
+pub struct TerminalJobMockEscrow;
+
+#[contractimpl]
+impl TerminalJobMockEscrow {
+    pub fn resolve_dispute_callback(_env: Env, _job_id: u64, _resolution: DisputeResolution) {}
+    pub fn get_job_count(_env: Env) -> u64 {
+        0
+    }
+    pub fn get_job(env: Env, job_id: u64) -> Result<escrow::Job, soroban_sdk::Error> {
+        let client = Address::generate(&env);
+        let freelancer = Address::generate(&env);
+        let token = Address::generate(&env);
+        let status = if job_id == 100 {
+            escrow::JobStatus::Completed
+        } else if job_id == 101 {
+            escrow::JobStatus::Cancelled
+        } else {
+            escrow::JobStatus::InProgress
+        };
+        Ok(escrow::Job {
+            id: job_id,
+            client,
+            freelancer,
+            token,
+            total_amount: 1000,
+            funded_amount: 1000,
+            status,
+            milestones: soroban_sdk::Vec::new(&env),
+            job_deadline: 0,
+            auto_refund_after: 0,
+        })
+    }
+}
+
+#[test]
+fn test_raise_dispute_on_completed_job_fails_terminal() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let dispute_contract_id = env.register_contract(None, DisputeContract);
+    let client = DisputeContractClient::new(&env, &dispute_contract_id);
+
+    let reputation_contract_id = env.register_contract(None, MockReputationContract);
+    let escrow_contract_id = env.register_contract(None, TerminalJobMockEscrow);
+    let admin = Address::generate(&env);
+
+    client.initialize(&admin, &reputation_contract_id, &300, &escrow_contract_id);
+
+    for _ in 0..5 {
+        let arb = Address::generate(&env);
+        client.add_arbitrator(&admin, &arb);
+    }
+
+    let user_client = Address::generate(&env);
+    let freelancer = Address::generate(&env);
+
+    let res = client.try_raise_dispute(
+        &100u64, // Completed job
+        &user_client,
+        &freelancer,
+        &user_client,
+        &String::from_str(&env, "Dispute on completed job"),
+        &3u32,
+        &None,
+    );
+
+    assert_eq!(res, Err(Ok(DisputeError::JobAlreadyTerminal)));
+}
+
+#[test]
+fn test_raise_dispute_on_cancelled_job_fails_terminal() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let dispute_contract_id = env.register_contract(None, DisputeContract);
+    let client = DisputeContractClient::new(&env, &dispute_contract_id);
+
+    let reputation_contract_id = env.register_contract(None, MockReputationContract);
+    let escrow_contract_id = env.register_contract(None, TerminalJobMockEscrow);
+    let admin = Address::generate(&env);
+
+    client.initialize(&admin, &reputation_contract_id, &300, &escrow_contract_id);
+
+    for _ in 0..5 {
+        let arb = Address::generate(&env);
+        client.add_arbitrator(&admin, &arb);
+    }
+
+    let user_client = Address::generate(&env);
+    let freelancer = Address::generate(&env);
+
+    let res = client.try_raise_dispute(
+        &101u64, // Cancelled job
+        &user_client,
+        &freelancer,
+        &user_client,
+        &String::from_str(&env, "Dispute on cancelled job"),
+        &3u32,
+        &None,
+    );
+
+    assert_eq!(res, Err(Ok(DisputeError::JobAlreadyTerminal)));
+}
+
+#[test]
+fn test_raise_dispute_on_active_funded_job_succeeds() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let dispute_contract_id = env.register_contract(None, DisputeContract);
+    let client = DisputeContractClient::new(&env, &dispute_contract_id);
+
+    let reputation_contract_id = env.register_contract(None, MockReputationContract);
+    let escrow_contract_id = env.register_contract(None, TerminalJobMockEscrow);
+    let admin = Address::generate(&env);
+
+    client.initialize(&admin, &reputation_contract_id, &300, &escrow_contract_id);
+
+    for _ in 0..5 {
+        let arb = Address::generate(&env);
+        client.add_arbitrator(&admin, &arb);
+    }
+
+    let user_client = Address::generate(&env);
+    let freelancer = Address::generate(&env);
+
+    let dispute_id = client.raise_dispute(
+        &102u64, // InProgress active job
+        &user_client,
+        &freelancer,
+        &user_client,
+        &String::from_str(&env, "Dispute on active job"),
+        &3u32,
+        &None,
+    );
+
+    assert_eq!(dispute_id, 1);
+}
