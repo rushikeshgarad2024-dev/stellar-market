@@ -865,3 +865,29 @@ fn min_proposer_weight_is_enforced() {
         .propose_governance(&strong, &AdminAction::SetFeeBps(250));
     assert_eq!(id, 1);
 }
+
+
+#[test]
+fn test_get_delegate_lifecycle() {
+    let ctx = setup();
+    let delegator = Address::generate(&ctx.env);
+    let delegatee = Address::generate(&ctx.env);
+
+    // 1. Initially undelegated account returns None
+    assert_eq!(ctx.escrow.get_delegate(&delegator), None);
+
+    // 2. After delegating, get_delegate returns the delegate address
+    ctx.escrow.delegate(&delegator, &delegatee);
+    assert_eq!(ctx.escrow.get_delegate(&delegator), Some(delegatee.clone()));
+
+    // 3. Self-delegation clears delegation (returns None)
+    ctx.escrow.delegate(&delegator, &delegator);
+    assert_eq!(ctx.escrow.get_delegate(&delegator), None);
+
+    // 4. Delegate again and test explicit undelegate call
+    ctx.escrow.delegate(&delegator, &delegatee);
+    assert_eq!(ctx.escrow.get_delegate(&delegator), Some(delegatee.clone()));
+
+    ctx.escrow.undelegate(&delegator);
+    assert_eq!(ctx.escrow.get_delegate(&delegator), None);
+}
