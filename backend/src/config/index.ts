@@ -60,6 +60,8 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || "default-secret-change-me",
   databaseUrl: process.env.DATABASE_URL,
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:3000",
+  apiUrl: process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`,
+  backendUrl: process.env.BACKEND_URL || process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`,
   encryptionKey,
   corsAllowedOrigins: (process.env.CORS_ALLOWED_ORIGINS || "")
     .split(",")
