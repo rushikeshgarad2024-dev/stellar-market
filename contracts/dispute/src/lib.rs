@@ -51,6 +51,7 @@ pub enum DisputeError {
     ExclusionNotConfirmed = 25,
     ReplacementUnavailable = 26,
     InsufficientActiveArbitrators = 27,
+    JobAlreadyTerminal = 28,
 }
 
 #[contracttype]
@@ -961,12 +962,24 @@ impl DisputeContract {
             .unwrap_or(0);
         count += 1;
 
-        // Detect conflicts of interest by querying escrow contract
+        // Detect conflicts of interest and verify job status by querying escrow contract
         let excluded_voters = if let Some(escrow_contract) = env
             .storage()
             .instance()
             .get::<DataKey, Address>(&DataKey::EscrowContract)
         {
+            // Verify job is not in a terminal state (Completed or Cancelled) before opening dispute
+            let job_result = env.try_invoke_contract::<escrow::Job, soroban_sdk::Error>(
+                &escrow_contract,
+                &Symbol::new(&env, "get_job"),
+                vec![&env, job_id.into_val(&env)],
+            );
+            if let Ok(Ok(job)) = job_result {
+                if job.status == escrow::JobStatus::Completed || job.status == escrow::JobStatus::Cancelled {
+                    return Err(DisputeError::JobAlreadyTerminal);
+                }
+            }
+
             detect_conflicts(&env, &escrow_contract, &client, &freelancer)
         } else {
             Vec::<Address>::new(&env)
