@@ -1471,6 +1471,9 @@ impl ReputationContract {
         env.storage().persistent().set(&rep_key, &reputation);
         bump_reputation_ttl(&env, &user);
 
+        // Keep leaderboard in sync with the slashed score
+        Self::update_leaderboard(&env, &user);
+
         env.events().publish(
             (
                 symbol_short!("reput"),
@@ -2538,6 +2541,9 @@ impl ReputationContract {
             env.storage().persistent().set(&reviews_key, &reviews);
             bump_reviews_ttl(&env, &reviewee);
 
+            // Keep leaderboard in sync with the appeal review removal
+            Self::update_leaderboard(&env, &reviewee);
+
             let review_exists_key =
                 DataKey::ReviewExists(reviewer.clone(), reviewee.clone(), job_id);
             if env.storage().persistent().has(&review_exists_key) {
@@ -2617,6 +2623,9 @@ impl ReputationContract {
         reviews.remove(review_index);
         env.storage().persistent().set(&reviews_key, &reviews);
         bump_reviews_ttl(&env, &user);
+
+        // Keep leaderboard in sync with the review removal
+        Self::update_leaderboard(&env, &user);
 
         let review_exists_key = DataKey::ReviewExists(reviewer.clone(), user.clone(), job_id);
         if env.storage().persistent().has(&review_exists_key) {
