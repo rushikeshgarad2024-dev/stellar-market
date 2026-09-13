@@ -95,6 +95,8 @@ enum NotificationType {
   ESCROW_TTL_WARNING
   JOB_INVITATION
   SUSPICIOUS_REPORTER_FLAGGED
+  JOB_CANCELLED
+  JOB_EXPIRED
 }
 
 enum InvitationStatus {
